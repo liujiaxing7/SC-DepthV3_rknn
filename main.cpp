@@ -27,6 +27,7 @@ void ReadFile(std::string srcFile, std::vector<std::string> &image_files) {
 
     fin.close();
 }
+
 bool Read(const char *filename, unsigned char **data, int &size) {
     *data = nullptr;
     ::FILE *fp;
@@ -52,6 +53,48 @@ bool Read(const char *filename, unsigned char **data, int &size) {
     exit:
     return false;
 }
+
+cv::Mat outBorders(cv::Mat input, cv::Mat input1){
+    for (int i=0; i<input.cols; ++i) {
+        {
+            for (int j=0; j<input.rows; ++j)
+            {
+                if (input1.at<float>(i,j) > 255 ){
+                    input.at<float>(i,j) = 255;
+                }
+
+            }
+        }
+    }
+    return input;
+}
+
+cv::Mat GetDepthImg(cv::Mat input)
+{
+    cv::Mat img = 14.2 / input * 100;
+    cv::Mat depth_img_rest = img.clone();
+    cv::Mat depth_img_R = depth_img_rest.clone();
+    depth_img_R = outBorders(depth_img_R, depth_img_rest);
+    depth_img_rest= outBorders(depth_img_rest, depth_img_rest);
+    depth_img_rest -= 255;
+    cv::Mat depth_img_G = depth_img_rest.clone();
+    depth_img_G = outBorders(depth_img_G, depth_img_rest);
+    depth_img_rest = outBorders(depth_img_rest,depth_img_rest);
+    depth_img_rest -= 255;
+    cv::Mat depth_img_B = depth_img_rest.clone();
+    depth_img_B= outBorders(depth_img_B, depth_img_rest);
+
+    std::vector<cv::Mat> ch_r;
+    ch_r.push_back(depth_img_R);
+    ch_r.push_back(depth_img_G);
+    ch_r.push_back(depth_img_B);
+    cv::Mat depth_img_rgb;
+    cv::merge(ch_r,depth_img_rgb);
+
+    return depth_img_rgb;
+}
+
+
 int main(int argc, char **argv) {
 
     if (argc < 2) {
@@ -62,7 +105,7 @@ int main(int argc, char **argv) {
     }
 
     int img_w = 640;
-    int img_h = 192;
+    int img_h = 384;
 
     cv::Mat dst;
 //    auto model = new ModelNpuRK();
@@ -190,7 +233,7 @@ int main(int argc, char **argv) {
                 {
                     //                std::cout<<"index: " << i*outSize_w+j <<std::endl;
                     //                std::cout<<"value:" <<network_outputs[0][i*outSize_w+j]<<std::endl;
-                    outimg.at<float>(i,j) = network_outputs[0][i*outSize_w+j];
+                    outimg.at<float>(i,j) = 1.0/network_outputs[0][i*outSize_w+j];
                 }
             }
         }
@@ -219,6 +262,7 @@ int main(int argc, char **argv) {
         //        cv2.applyColorMap(cv2.convertScaleAbs(norm_disparity_map,1), cv2.COLORMAP_MAGMA)
         cv::convertScaleAbs(showImg,colorimg);
         cv::applyColorMap(colorimg,colorimgfinal,cv::COLORMAP_PARULA);
+//        colorimgfinal = GetDepthImg(showImg);
 //        cv::applyColorMap(colorimg,colorimgfinal,cv::COLORMAP_HOT);
         //    namedWindow("image", cv::WINDOW_AUTOSIZE);
         //    imshow("image", colorimgfinal);
